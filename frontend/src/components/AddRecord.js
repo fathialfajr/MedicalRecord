@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { getMedicalRecordContract } from "../utils/contract";
 
+
+
+
+
 const AddRecord = () => {
   const [formData, setFormData] = useState({
     name: "",

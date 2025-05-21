@@ -1,46 +1,91 @@
-import React, { useEffect, useState } from "react";
-import { fetchAllRecords } from "../utils/contract";
+import React, { useState, useEffect } from "react";
+import { getMedicalRecordContract } from "../utils/contract";
 
-function ViewAllRecords() {
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
+const ViewAllRecords = () => {
+const [records, setRecords] = useState([]);
+const [isAuthorized, setIsAuthorized] = useState(null); // null = loading
+const [hospitalName, setHospitalName] = useState(null);
+const [address, setAddress] = useState("");
+const [error, setError] = useState("");
+
 
   useEffect(() => {
     const loadRecords = async () => {
       try {
-        const data = await fetchAllRecords();
-        setRecords(data);
+        const contract = await getMedicalRecordContract();
+        const address = await contract.runner.getAddress(); // connected wallet
+
+        // 🔍 Check hospital authorization
+        const info = await contract.getHospitalInfo(address);
+        const authorized = info[1]; // true/false
+        const name = info[0];
+
+        setAddress(address);
+
+        if (!authorized) {
+          setIsAuthorized(false);
+          setHospitalName(null);
+          return;
+        }
+
+        setIsAuthorized(true);
+        setHospitalName(name);
+
+        // ✅ Fetch all records
+        const all = await contract.getAllRecords();
+        setRecords(all);
       } catch (err) {
-        console.error("❌ Failed to load records:", err);
-      } finally {
-        setLoading(false);
+        console.error("❌ Error:", err);
+        setError("⚠️ Failed to load records. Check console.");
       }
     };
 
     loadRecords();
   }, []);
 
+  if (error) {
+    return <p style={{ color: "red" }}>{error}</p>;
+  }
+
+  if (isAuthorized === null) {
+    return <p>⏳ Checking access...</p>;
+  }
+
+  if (!isAuthorized) {
+    return <p style={{ color: "darkred" }}>🚫 Access denied: This wallet is not a verified hospital.</p>;
+  }
+
   return (
-    <div style={{ padding: "20px" }}>
+    <div>
       <h2>📋 All Medical Records</h2>
-      {loading ? (
-        <p>⏳ Loading...</p>
+      {isAuthorized && hospitalName && (
+        <p style={{ color: "green", marginBottom: "1rem" }}>
+          🏥 Logged in as: <strong>{hospitalName}</strong> ({address})
+        </p>
+      )}
+
+      {isAuthorized === false && (
+        <p style={{ color: "red", marginBottom: "1rem" }}>
+          ❌ Access denied. This wallet is not a verified hospital: {address}
+        </p>
+      )}
+
+      {records.length === 0 ? (
+        <p>No records found.</p>
       ) : (
-        <ul style={{ listStyleType: "none", padding: 0 }}>
-          {records.map((r, idx) => (
-            <li key={idx} style={{ marginBottom: "20px", borderBottom: "1px solid #ccc", paddingBottom: "10px" }}>
-              <strong>Name:</strong> {r.name}<br />
-              <strong>Birth Date:</strong> {r.birthDate}<br />
-              <strong>Diagnosis:</strong> {r.diagnosis}<br />
-              <strong>Treatment:</strong> {r.treatment}<br />
-              <strong>Hospital:</strong> {r.hospital}<br />
-              <strong>Time:</strong> {new Date(Number(r.timestamp) * 1000).toLocaleString()}
-            </li>
-          ))}
-        </ul>
+        records.map((r, idx) => (
+          <div key={idx} style={{ border: "1px solid #ddd", padding: "1rem", marginBottom: "1rem" }}>
+            <p><strong>Patient:</strong> {r.name}</p>
+            <p><strong>DOB:</strong> {r.birthDate}</p>
+            <p><strong>Diagnosis:</strong> {r.diagnosis}</p>
+            <p><strong>Treatment:</strong> {r.treatment}</p>
+            <p><strong>Hospital:</strong> {r.hospital}</p>
+            <p><strong>Time:</strong> {new Date(Number(r.timestamp) * 1000).toLocaleString()}</p>
+          </div>
+        ))
       )}
     </div>
   );
-}
+};
 
 export default ViewAllRecords;
