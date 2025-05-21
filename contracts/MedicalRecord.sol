@@ -105,4 +105,14 @@ contract MedicalRecord {
         require(newOwner != address(0), "Invalid new owner address");
         owner = newOwner;
     }
+
+    function getAllRecords() public view returns (Record[] memory) {
+    Record[] memory all = new Record[](nextId);
+    for (uint256 i = 0; i < nextId; i++) {
+        all[i] = records[i];
+    }
+    return all;
+    }
+
+
 }
